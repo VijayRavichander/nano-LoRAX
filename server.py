@@ -5,9 +5,12 @@ from fastapi.responses import Response
 import uvicorn
 from config import settings
 import httpx
+from lora_manager import LoraManager
+from redis_manager import RedisManager
 
 app = FastAPI()
-
+lora_manager = LoraManager()
+redis_manager = RedisManager()
 
 vllm_client = httpx.AsyncClient(base_url = settings.VLLM_SERVER_URL)
 
@@ -64,6 +67,18 @@ async def chat_completions(request: Request):
 
     try: 
         body = await request.json()
+
+        model_name = body.get('model')
+
+        if not model_name:
+            return HTTPException(status_code=400, detail="Please Include a Model Name")
+
+        if await is_lora_model(model_name):
+
+            hf_token = request.headers.get("X-HF-Token")
+            success = await lora_manager.ensure_lora_loaded(model_name, hf_token)
+
+
         return await forward_req_to_vllm(request)
 
     except HTTPException:
@@ -71,7 +86,7 @@ async def chat_completions(request: Request):
 
     except Exception as e:
         print(f"Error in chat completion: {str(e)}")
-        raise HTTPException(status_code=500, detial = str(e))
+        raise HTTPException(status_code=500, detail = str(e))
 
 
 if __name__ == "__main__":

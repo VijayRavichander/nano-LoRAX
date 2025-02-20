@@ -91,7 +91,7 @@ class RedisManager:
         self.update_lora_timestamp(lora_name, is_loaded=False)
         self.redis.hincrby(self.STATS, "donwloaded_count", 1)
     
-    def record_lora_unloaded(self, lora_name: str) -> None:
+    def record_lora_deleted(self, lora_name: str) -> None:
         self.redis.hdel(self.DOWNLOADED_LORAS, lora_name)
         self.redis.hincrby(self.STATS, 'deleted_count', 1)
     
@@ -105,4 +105,3 @@ class RedisManager:
         self.initialize_stats()
 
 
-redis_manager = RedisManager()
