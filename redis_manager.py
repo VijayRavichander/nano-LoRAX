@@ -1,6 +1,6 @@
 import redis
 import time
-from config import settings
+from .config import settings
 from typing import List, Dict, Optional
 
 class RedisManager:

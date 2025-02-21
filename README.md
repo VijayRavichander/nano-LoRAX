@@ -56,6 +56,6 @@ nohup uv run vllm serve neuralmagic/Meta-Llama-3.1-8B-Instruct-FP8 \
 
 After Starting Your vLLM server, Run the proxy server with:
 ```sh
-nohup uv run python -m autoload.server > proxy.log 2>&1 &
+nohup uv run python -m server > proxy.log 2>&1 &
 ```
 

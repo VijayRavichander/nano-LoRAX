@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     HF_CACHE_DIR: Optional[str] = None
     DEFAULT_HF_TOKEN: Optional[str] = None
     PROXY_PORT: int = 8080
-    BASE_MODEL: str
+    BASE_MODEL: Optional[str] = None
 
     # Anything written in the .env is used
     class Config: 

@@ -3,10 +3,10 @@
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import Response
 import uvicorn
-from config import settings
+from .config import settings
 import httpx
-from lora_manager import LoraManager
-from redis_manager import RedisManager
+from .lora_manager import LoraManager
+from .redis_manager import RedisManager
 import asyncio
 
 app = FastAPI()

@@ -2,8 +2,8 @@ import os
 import time
 import httpx
 from typing import Optional, Dict
-from redis_manager import RedisManager
-from config import settings
+from .redis_manager import RedisManager
+from .config import settings
 from collections import defaultdict
 from asyncio import Lock
 import asyncio
