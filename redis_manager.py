@@ -6,13 +6,13 @@ from typing import List, Dict, Optional
 class RedisManager:
 
     def __init__(self):
-
         self.redis = redis.from_url(settings.REDIS_URL)
         self.LOADED_LORAS = "loaded_loras" # Hash: LoRa_Name -> TimeStamp
         self.DOWNLOADED_LORAS = "downloaded_loras" # Hash: LoRa_Name -> TimeStamp
         self.STATS = "lora_stats"
 
     def init_stats(self):
+        print("Init Stats in Redis")
         default_stats = {
             "loaded_count": 0, 
             "unloaded_count": 0, 
@@ -30,7 +30,7 @@ class RedisManager:
 
     
     def get_loaded_loras(self) -> List[Dict[str, float]]:
-        loaded = self.redist.hgetall(self.LOADED_LORAS)
+        loaded = self.redis.hgetall(self.LOADED_LORAS)
         
         loaded_loras = [{"name": name.decode(), "last_used": float(timestamp.decode())}
                          for name, timestamp in loaded.items()]
@@ -39,7 +39,7 @@ class RedisManager:
 
 
     def get_downloaded_loras(self) -> List[Dict[str, float]]:
-        donwloaded = self.redist.hgetall(self.DOWNLOADED_LORAS)
+        donwloaded = self.redis.hgetall(self.DOWNLOADED_LORAS)
         
         donwloaded_loras = [{"name": name.decode(), "last_used": float(timestamp.decode())}
                          for name, timestamp in donwloaded.items()]
@@ -47,6 +47,7 @@ class RedisManager:
         return donwloaded_loras
 
     def is_loaded_lora(self, lora_name) -> bool:
+        print(f"Checking if LORA Exist: {lora_name}")
         return self.redis.hexists(self.LOADED_LORAS, lora_name)
 
     def is_lora_downloaded(self, lora_name) -> bool:
@@ -96,12 +97,12 @@ class RedisManager:
         self.redis.hincrby(self.STATS, 'deleted_count', 1)
     
     def get_stats(self) -> Dict:
-        stats = self.redis.hgetal(self.STATS)
+        stats = self.redis.hgetall(self.STATS)
         return {k: int(v) for k, v in stats.items()}
 
     def clear_all_state(self):
         self.redis.delete(self.LOADED_LORAS)
         self.redis.delete(self.DOWNLOADED_LORAS)
-        self.initialize_stats()
+        self.init_stats()
 
 

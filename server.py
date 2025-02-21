@@ -7,6 +7,7 @@ from config import settings
 import httpx
 from lora_manager import LoraManager
 from redis_manager import RedisManager
+import asyncio
 
 app = FastAPI()
 lora_manager = LoraManager()
@@ -14,12 +15,12 @@ redis_manager = RedisManager()
 
 vllm_client = httpx.AsyncClient(base_url = settings.VLLM_SERVER_URL)
 
+
 @app.on_event("startup")
 async def startup_event():
     '''Init Redis Manager'''
     try:
-        print("Init Redis State")
-    
+        redis_manager.clear_all_state()
     except Exception as e:
         print(f"Warning: Failed to Initialize Redis: {str(e)}")
         print("Server will start but LoRA management will fail")
@@ -27,7 +28,7 @@ async def startup_event():
 
 # TODO - Desing Choice of choosing the right naming scheme
 async def is_lora_model(model_name: str) -> bool:
-    return 'adapter' in model_name.lower() 
+    return 'adapter' in model_name.lower() or 'lora' in model_name.lower()
 
 async def forward_req_to_vllm(request: Request):
 
@@ -56,7 +57,6 @@ async def forward_req_to_vllm(request: Request):
                 headers=dict(response.headers)
             )
         
-        
     except Exception as e:
         print(f"Error forwarding request: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -64,7 +64,7 @@ async def forward_req_to_vllm(request: Request):
 
 @app.post("/v1/chat/completions")
 async def chat_completions(request: Request):
-
+    
     try: 
         body = await request.json()
 
@@ -79,7 +79,15 @@ async def chat_completions(request: Request):
             success = await lora_manager.ensure_lora_loaded(model_name, hf_token)
 
 
-        return await forward_req_to_vllm(request)
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                return await forward_req_to_vllm(request)
+            except HTTPException as e:
+                if attempt == max_retries - 1:
+                    raise
+                print(f"Attempt {attempt + 1} failed, retrying...")
+                await asyncio.sleep(2 * (attempt + 1))
 
     except HTTPException:
         raise
@@ -88,6 +96,47 @@ async def chat_completions(request: Request):
         print(f"Error in chat completion: {str(e)}")
         raise HTTPException(status_code=500, detail = str(e))
 
+
+@app.get("/v1/models")
+async def list_models(request: Request):
+    return await forward_req_to_vllm(request)
+
+
+@app.get("/v1/lora/loaded")
+async def get_loaded_loras():
+    return {"loaded_loras": redis_manager.get_loaded_loras()}
+
+@app.get("/v1/lora/downloaded")
+async def get_downloaded_loras():
+    return {"downloaded_loras": redis_manager.get_downloaded_loras()}
+
+@app.get("/v1/lora/status")
+async def get_status():
+    stats = redis_manager.get_stats()
+    return {
+        "stats": stats, 
+        "limits": {
+            "max_loaded": settings.MAX_LOADED_LORAS, 
+            "max_downloaded": settings.MAX_DOWNLOADED_LORAS
+        }
+    }
+
+@app.api_route("/{path:path}", methods = ["GET", "POST", "PUT", "DELETE"])
+async def proxy_endpoint(request: Request, path: str):
+    return await forward_req_to_vllm(request)
+
+async def cleanup():
+    """Cleanup resources before shutdown"""
+    print("Cleaning up resources...")
+    # Close httpx clients
+    await vllm_client.aclose()
+    await lora_manager.cleanup()
+    print("Cleanup complete")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Handle graceful shutdown"""
+    await cleanup()
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=settings.PROXY_PORT) 
